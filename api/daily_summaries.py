@@ -2,13 +2,15 @@ import pandas as pd
 import numpy as np
 from statistics import mean, mode
 from sqlalchemy import create_engine
-import pickle
+import pickle, os
+
 
 class DailySummaries:
-    def __init__(self):
-        self.trip_summaries = self.TripSummaries()
+    def __init__(self,date):
+        self.trip_summaries = self.TripSummaries(date)
         self.ids = self.trip_summaries.trip_ids
 
+    # Returns daily summary
     def daily_summaries(self):
         average_speeds = []
         distances_covered = []
@@ -38,13 +40,24 @@ class DailySummaries:
 
         return daily_summary
 
+    def trip_ids(self):
+
+        ids = self.ids
+        trip_dict={}
+
+        for x in ids:
+            trip_dict['Trip ' + str(x)] = x
+
+        return trip_dict
 
     class TripSummaries:
-        def __init__(self):
-            date = '2017-07-11'
-            conn = create_engine('sqlite:///E:/Envirocar/myapp/envirocar.db')
-            start_time = date + " " + "00:00:00.000000"
-            end_time = date + " " + "23:59:59.999999"
+        def __init__(self, date):
+
+            self.date = date
+            db_url = 'sqlite:///' + os.path.abspath('myapp/envirocar.db')
+            conn = create_engine(db_url)
+            start_time = self.date + " " + "00:00:00.000000"
+            end_time = self.date + " " + "23:59:59.999999"
             query = 'SELECT * FROM VehicleData WHERE Time >= ? and Time <= ?'
             self.data = pd.read_sql_query(query, conn, params=(start_time, end_time), parse_dates=['Time'])
             self.trip_ids = list(set(self.data.TripID.values))
@@ -73,7 +86,7 @@ class DailySummaries:
             feature_set = pd.DataFrame({'rr_of_vs_and_es':vs_es.rr_of_vs_and_es.values,'rr_of_tp_and_es':tp_er.rr_of_tp_and_es.values,
                                         'engine_load': engine_load[:-1]})
             feature_set = feature_set[~feature_set.isin([np.nan, np.inf, -np.inf]).any(1)]
-            filename = r'E:\Envirocar\analysis\behaviour_analysis.sav'
+            filename = os.path.abspath("analysis/behaviour_analysis.sav")
             loaded_model = pickle.load(open(filename, 'rb'))
             results = loaded_model.predict(feature_set).tolist()
             score = mode(results)
@@ -118,9 +131,12 @@ class DailySummaries:
             idle_time = self.engine_total_idle_time(trip_data)
             fuel_consumed = round((self.mpg_calculator(trip_data)/distance_covered),2)
             estimated_fuel_cost = round((112.5 * fuel_consumed),2)
+            prevailing_speed_range = [np.percentile(trip_data['Vehicle Speed Sensor'].values,75),
+                                      np.percentile(trip_data['Vehicle Speed Sensor'].values,25)]
 
             trip_summary = {'Time_spent_on_road':time_spent_on_road, 'Average_speed':average_speed,'Maximum_speed':max_speed,
                             'Minimum_speed': min_speed, 'Distance_covered':distance_covered, 'Driving_Behaviour':driver_behaviour,
-                            'Idle_engine_time': sum(idle_time), 'Fuel_consumed': fuel_consumed,'Estimated_fuel_cost':estimated_fuel_cost}
+                            'Idle_engine_time': sum(idle_time), 'Fuel_consumed': fuel_consumed,'Estimated_fuel_cost':estimated_fuel_cost,
+                            'Prevailing speed':prevailing_speed_range}
 
             return trip_summary

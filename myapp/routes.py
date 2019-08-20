@@ -4,7 +4,7 @@ from myapp import app, db
 from myapp.models import User
 from werkzeug.security import generate_password_hash, check_password_hash
 from api.daily_summaries import DailySummaries
-
+import datetime
 
 
 @app.route('/', methods=['GET','POST'])
@@ -46,13 +46,27 @@ def register():
     return render_template('signup.html', form=form)
 
 
+@app.route('/dashboard', methods=['GET','POST'])
+def dashboard():
+    return render_template('dashboard.html')
+
 @app.route('/daily',methods=['GET', 'POST'])
 def daily_summaries():
-    daily_obj = DailySummaries()
+
+    #date = datetime.datetime.now().strftime('%Y-%m-%d')
+
+    daily_obj = DailySummaries('2017-07-11')
     return daily_obj.daily_summaries()
 
 
-@app.route('/daily/trip/<int:id>',methods = ['GET','POST'])
-def trip_summaries(id):
-    trip_obj = DailySummaries().TripSummaries()
-    return trip_obj.trip_analysis(id)
+@app.route('/daily/trips',methods = ['GET','POST'])
+def trip_summaries():
+    #date = datetime.datetime.now().strftime('%Y-%m-%d')
+    daily_obj = DailySummaries('2017-07-11')
+    trips = daily_obj.ids
+    trip_json = {}
+    for trip in trips:
+        trip_obj = daily_obj.trip_summaries
+        trip_json[str(trip)] = trip_obj.trip_analysis(trip)
+
+    return trip_json
